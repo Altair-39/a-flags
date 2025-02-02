@@ -10,5 +10,6 @@ keywords = ["lgbt", "terminal", "cli"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-clap = "4.5.20"
-colored = "2.1.0"
+clap = "4.5.27"
+colored = "3.0.0"
+phf = { version = "0.11.3", features = ["macros"] }
