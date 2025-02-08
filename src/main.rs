@@ -1,8 +1,13 @@
 use clap::{Arg, Command};
 use colored::*;
+use image::{Rgb, RgbImage};
 use phf::phf_map;
 use std::fmt;
+use std::fs;
+use std::path::Path;
 use std::str::FromStr;
+use std::thread;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Flag {
@@ -123,18 +128,47 @@ fn get_flag_palette(flag: Flag) -> &'static [&'static str] {
     FLAG_PALETTES
         .get(flag.as_str())
         .copied()
-        .unwrap_or(&["#FFFFFF"]) // Default to white
+        .unwrap_or(&["#FFFFFF"])
+}
+
+fn generate_flag_image(flag: Flag) {
+    let palette = get_flag_palette(flag);
+    let width = 500;
+    let height = 300;
+    let stripe_height = height / palette.len() as u32;
+
+    let mut img = RgbImage::new(width, height);
+
+    for (i, &color) in palette.iter().enumerate() {
+        let (r, g, b) = (
+            u8::from_str_radix(&color[1..3], 16).unwrap(),
+            u8::from_str_radix(&color[3..5], 16).unwrap(),
+            u8::from_str_radix(&color[5..7], 16).unwrap(),
+        );
+        let rgb = Rgb([r, g, b]);
+
+        for y in (i as u32 * stripe_height)..((i as u32 + 1) * stripe_height) {
+            for x in 0..width {
+                img.put_pixel(x, y, rgb);
+            }
+        }
+    }
+
+    fs::create_dir_all("flags").unwrap();
+    let path = format!("flags/{}.png", flag.as_str());
+    img.save(Path::new(&path)).unwrap();
+    println!("✅ Flag image saved as {}", path);
 }
 
 fn main() {
     let matches = Command::new("LGBT Flags")
         .version("1.0")
-        .about("Displays LGBT pride flags with colors")
+        .about("Displays LGBT pride flags with colors and generates flag images")
         .arg(
             Arg::new("flag")
                 .short('f')
                 .long("flag")
-                .help("The type of flag to display")
+                .help("The type of flag to display in the terminal")
                 .value_parser([
                     "rainbow",
                     "lesbian",
@@ -159,19 +193,53 @@ fn main() {
                 ])
                 .default_value("rainbow"),
         )
+        .arg(
+            Arg::new("image")
+                .short('i')
+                .long("image")
+                .help("Generate an image of the specified flag")
+                .value_parser([
+                    "rainbow",
+                    "lesbian",
+                    "gay",
+                    "bisexual",
+                    "transgender",
+                    "asexual",
+                    "pansexual",
+                    "nonbinary",
+                    "genderqueer",
+                    "mlm",
+                    "aromantic",
+                    "polysexual",
+                    "demiboy",
+                    "demigirl",
+                    "agender",
+                    "bigender",
+                    "genderfluid",
+                    "abrosexual",
+                    "neutrois",
+                    "trigender",
+                ]),
+        )
         .get_matches();
 
-    let flag_str = matches.get_one::<String>("flag").unwrap();
-    let flag = flag_str.parse::<Flag>().unwrap_or(Flag::Rainbow);
+    if let Some(flag_str) = matches.get_one::<String>("image") {
+        let flag = flag_str.parse::<Flag>().unwrap_or(Flag::Rainbow);
+        generate_flag_image(flag);
+    } else {
+        let flag_str = matches.get_one::<String>("flag").unwrap();
+        let flag = flag_str.parse::<Flag>().unwrap_or(Flag::Rainbow);
 
-    let palette = get_flag_palette(flag);
-    for color in palette {
-        let (r, g, b) = (
-            u8::from_str_radix(&color[1..3], 16).unwrap(),
-            u8::from_str_radix(&color[3..5], 16).unwrap(),
-            u8::from_str_radix(&color[5..7], 16).unwrap(),
-        );
-
-        println!("{}", " ".repeat(20).on_truecolor(r, g, b));
+        let palette = get_flag_palette(flag);
+        println!();
+        for color in palette.iter() {
+            let (r, g, b) = (
+                u8::from_str_radix(&color[1..3], 16).unwrap(),
+                u8::from_str_radix(&color[3..5], 16).unwrap(),
+                u8::from_str_radix(&color[5..7], 16).unwrap(),
+            );
+            println!("{}", " ".repeat(20).on_truecolor(r, g, b));
+            thread::sleep(Duration::from_millis(200));
+        }
     }
 }
