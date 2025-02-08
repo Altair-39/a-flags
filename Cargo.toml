@@ -1,6 +1,6 @@
 [package]
 name = "a-flags"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["Altair"]
 description = "Print LGBTQIA+ flags in your terminal"
 edition = "2021"
