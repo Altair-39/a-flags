@@ -2,7 +2,6 @@ use clap::{Arg, Command};
 use colored::*;
 use image::{Rgb, RgbImage};
 use phf::phf_map;
-use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
@@ -61,7 +60,7 @@ impl Flag {
 }
 
 impl FromStr for Flag {
-    type Err = FlagParseError;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
@@ -85,21 +84,10 @@ impl FromStr for Flag {
             "abrosexual" => Ok(Flag::Abrosexual),
             "neutrois" => Ok(Flag::Neutrois),
             "trigender" => Ok(Flag::Trigender),
-            _ => Err(FlagParseError),
+            _ => Err(format!("Invalid flag name: {}", s)),
         }
     }
 }
-
-#[derive(Debug)]
-struct FlagParseError;
-
-impl fmt::Display for FlagParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid flag name")
-    }
-}
-
-impl std::error::Error for FlagParseError {}
 
 static FLAG_PALETTES: phf::Map<&'static str, &[&str]> = phf_map! {
     "rainbow" => &["#E40303", "#FF8C00", "#FFED00", "#008026", "#004CFF", "#732982"],
@@ -125,16 +113,14 @@ static FLAG_PALETTES: phf::Map<&'static str, &[&str]> = phf_map! {
 };
 
 fn get_flag_palette(flag: Flag) -> &'static [&'static str] {
-    FLAG_PALETTES
-        .get(flag.as_str())
-        .copied()
-        .unwrap_or(&["#FFFFFF"])
+    match FLAG_PALETTES.get(flag.as_str()) {
+        Some(palette) => palette,
+        None => &["#FFFFFF"],
+    }
 }
 
-fn generate_flag_image(flag: Flag) {
+fn generate_flag_image(flag: Flag, width: u32, height: u32) -> Result<(), String> {
     let palette = get_flag_palette(flag);
-    let width = 500;
-    let height = 300;
     let stripe_height = height / palette.len() as u32;
 
     let mut img = RgbImage::new(width, height);
@@ -154,10 +140,34 @@ fn generate_flag_image(flag: Flag) {
         }
     }
 
-    fs::create_dir_all("flags").unwrap();
+    fs::create_dir_all("flags").map_err(|e| e.to_string())?;
     let path = format!("flags/{}.png", flag.as_str());
-    img.save(Path::new(&path)).unwrap();
+    img.save(Path::new(&path)).map_err(|e| e.to_string())?;
     println!("✅ Flag image saved as {}", path);
+
+    Ok(())
+}
+
+fn display_flag_in_terminal(flag: Flag, width: u32, height: u32) {
+    let palette = get_flag_palette(flag);
+
+    let stripe_height = height / palette.len() as u32;
+
+    println!();
+
+    for &color in palette.iter() {
+        let (r, g, b) = (
+            u8::from_str_radix(&color[1..3], 16).unwrap(),
+            u8::from_str_radix(&color[3..5], 16).unwrap(),
+            u8::from_str_radix(&color[5..7], 16).unwrap(),
+        );
+
+        for _ in 0..stripe_height {
+            println!("{}", " ".repeat(width as usize).on_truecolor(r, g, b));
+        }
+
+        thread::sleep(Duration::from_millis(200));
+    }
 }
 
 fn main() {
@@ -221,25 +231,34 @@ fn main() {
                     "trigender",
                 ]),
         )
+        .arg(
+            Arg::new("width")
+                .short('a')
+                .long("width")
+                .help("The width of the flag in the terminal")
+                .default_value("20")
+                .value_parser(clap::value_parser!(u32)),
+        )
+        .arg(
+            Arg::new("height")
+                .short('b')
+                .long("height")
+                .help("The height of the flag in the terminal")
+                .default_value("10")
+                .value_parser(clap::value_parser!(u32)),
+        )
         .get_matches();
+
+    let flag_str = matches.get_one::<String>("flag").unwrap();
+    let flag = flag_str.parse::<Flag>().unwrap_or(Flag::Rainbow);
+
+    let width = *matches.get_one::<u32>("width").unwrap();
+    let height = *matches.get_one::<u32>("height").unwrap();
 
     if let Some(flag_str) = matches.get_one::<String>("image") {
         let flag = flag_str.parse::<Flag>().unwrap_or(Flag::Rainbow);
-        generate_flag_image(flag);
+        let _ = generate_flag_image(flag, width * 10, height * 10);
     } else {
-        let flag_str = matches.get_one::<String>("flag").unwrap();
-        let flag = flag_str.parse::<Flag>().unwrap_or(Flag::Rainbow);
-
-        let palette = get_flag_palette(flag);
-        println!();
-        for color in palette.iter() {
-            let (r, g, b) = (
-                u8::from_str_radix(&color[1..3], 16).unwrap(),
-                u8::from_str_radix(&color[3..5], 16).unwrap(),
-                u8::from_str_radix(&color[5..7], 16).unwrap(),
-            );
-            println!("{}", " ".repeat(20).on_truecolor(r, g, b));
-            thread::sleep(Duration::from_millis(200));
-        }
+        display_flag_in_terminal(flag, width, height);
     }
 }
