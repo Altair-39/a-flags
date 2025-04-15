@@ -10,7 +10,7 @@
 
 ### Installing from source (other distros and MacOS/Windows)
 
-To install kingler from source, you will need Rust. Installation instructions can be found [here](https://www.rust-lang.org/learn/get-started).
+To install a-flags from source, you will need Rust. Installation instructions can be found [here](https://www.rust-lang.org/learn/get-started).
 
 Now using cargo, run
 ```
